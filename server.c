@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -7,47 +6,49 @@
 #include <signal.h>
 
 struct message {
-	char source[50];
-	char target[50]; 
-	char msg[200]; // message body
+    char source[50];
+    char target[50];
+    char msg[200];
 };
 
 void terminate(int sig) {
-	printf("Exiting....\n");
-	fflush(stdout);
-	exit(0);
+    printf("Exiting....\n");
+    fflush(stdout);
+    exit(0);
 }
 
 int main() {
-	int server;
-	int target;
-	int dummyfd;
-	struct message req;
-	signal(SIGPIPE,SIG_IGN);
-	signal(SIGINT,terminate);
-	server = open("serverFIFO",O_RDONLY);
-	dummyfd = open("serverFIFO",O_WRONLY);
+    int server;
+    int target;
+    int dummyfd;
+    struct message req;
 
-	while (1) {
-		if (read(server, &req, sizeof(req)) <= 0) {
-			continue;
-		}
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGINT, terminate);
 
-		printf("Received a request from %s to send the message %s to %s.\n",req.source,req.msg,req.target);
+    server = open("serverFIFO", O_RDONLY);
+    dummyfd = open("serverFIFO", O_WRONLY); // keep open to avoid EOF
 
-		char targetFifo[100];
-		snprintf(targetFifo, sizeof(targetFifo), "%sFIFO", req.target);
+    while (1) {
+        if (read(server, &req, sizeof(struct message)) <= 0) continue;
 
-		target = open(targetFifo, O_WRONLY);
-		if (target != -1) {
-			write(target, &req, sizeof(req));
-			close(target);
-		} else {
-			fprintf(stderr, "Could not open FIFO for target user %s\n", req.target);
-		}
-	}
-	close(server);
-	close(dummyfd);
-	return 0;
+        printf("Received a request from %s to send the message %s to %s.\n",
+               req.source, req.msg, req.target);
+
+        char fifoName[64];
+        sprintf(fifoName, "%s", req.target);
+
+        target = open(fifoName, O_WRONLY);
+        if (target == -1) {
+            perror("open target FIFO");
+            continue;
+        }
+
+        write(target, &req, sizeof(struct message));
+        close(target);
+    }
+
+    close(server);
+    close(dummyfd);
+    return 0;
 }
-
