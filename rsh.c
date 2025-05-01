@@ -59,9 +59,8 @@ void* messageListener(void *arg) {
 
     while (1) {
         if (read(fd, &m, sizeof(struct message)) > 0) {
-            printf("\nIncoming message from %s: %s\n", m.source, m.msg);
-            fprintf(stderr, "rsh>");
-            fflush(stdout);
+            printf("Incoming message from %s: %s\n", m.source, m.msg);
+			fflush(stdout);
         }
     }
 
