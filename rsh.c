@@ -47,23 +47,41 @@ void sendmsg (char *user, char *target, char *msg) {
 void* messageListener(void *arg) {
     char fifoName[100];
     int userFifo;
+    int dummyfd;
     struct message incoming;
 
     snprintf(fifoName, sizeof(fifoName), "%sFIFO", uName);
 
-    mkfifo(fifoName, 0666);
+    if (mkfifo(fifoName, 0666) == -1 && errno != EEXIST) {
+        perror("mkfifo failed");
+        pthread_exit(NULL);
+    }
 
-    userFifo = open(fifoName, O_RDONLY);
+    userFifo = open(fifoName, O_RDWR);
+    if (userFifo == -1) {
+        perror("open user FIFO failed");
+        pthread_exit(NULL);
+    }
+
     while (1) {
-        if (read(userFifo, &incoming, sizeof(incoming)) > 0) {
+        ssize_t total = 0, r;
+        char *buf = (char*)&incoming;
+
+        while (total < sizeof(incoming) &&
+               (r = read(userFifo, buf + total, sizeof(incoming) - total)) > 0) {
+            total += r;
+        }
+
+        if (total == sizeof(incoming)) {
             printf("Incoming message from %s: %s\n", incoming.source, incoming.msg);
             fflush(stdout);
         }
     }
 
     close(userFifo);
-    pthread_exit((void*)0);
+    pthread_exit(NULL);
 }
+
 
 int isAllowed(const char*cmd) {
 	int i;
